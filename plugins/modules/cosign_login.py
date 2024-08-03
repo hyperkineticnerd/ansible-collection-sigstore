@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
-# Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# Copyright: (c) 2023, Sean Nelson <hyperkineticnerd@gmail.com>
+# GNU General Public License v2.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
 from __future__ import (absolute_import, division, print_function)
-import subprocess
 __metaclass__ = type
 
 DOCUMENTATION = r'''
@@ -12,8 +12,6 @@ module: cosign_login
 
 short_description: Use cosign to login to a registry
 
-# If this is part of a collection, you need to use semantic versioning,
-# i.e. the version is of the form "2.5.0" and not "2.4".
 version_added: "1.0.0"
 
 description: This is my longer description explaining my test module.
@@ -24,59 +22,46 @@ options:
         required: true
         type: str
     username:
-        description:
-            - Control to demo if the result of this module is changed or not.
-            - Parameter description can be a list as well.
+        description: Username to use for login
         required: true
         type: str
     password:
-        description:
-            - Control to demo if the result of this module is changed or not.
-            - Parameter description can be a list as well.
+        description: Password for login
         required: true
         type: str
-# Specify this value according to your collection
-# in format of namespace.collection.doc_fragment_name
-extends_documentation_fragment:
-    - hyperkineticnerd.sigstore.my_doc_fragment_name
 
 author:
     - Sean Nelson (@hyperkineticnerd)
 '''
 
 EXAMPLES = r'''
-# Pass in a message
-- name: Test with a message
-  my_namespace.my_collection.my_test:
-    name: hello world
-
-# pass in a message and have changed true
-- name: Test with a message and changed output
-  my_namespace.my_collection.my_test:
-    name: hello world
-    new: true
-
-# fail the module
-- name: Test failure of the module
-  my_namespace.my_collection.my_test:
-    name: fail me
+- name: Login using Username and Password
+  hyperkineticnerd.sigstore.cosign_login:
+    registry: registry.example.com
+    username: alice
+    password: changeme
 '''
 
 RETURN = r'''
-# These are examples of possible return values, and in general should use other names for return values.
-original_message:
-    description: The original name param that was passed in.
+rc:
+    description: The return-code from cosign.
+    type: int
+    returned: always
+    sample: '0'
+stdout:
+    description: The stdout from cosign.
     type: str
     returned: always
-    sample: 'hello world'
-message:
-    description: The output message that the test module generates.
+    sample: ''
+stderr:
+    description: The stderr from cosign.
     type: str
     returned: always
-    sample: 'goodbye'
+    sample: ''
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+import subprocess
 
 
 def run_module():
@@ -94,9 +79,10 @@ def run_module():
     # for consumption, for example, in a subsequent task
     result = dict(
         changed=False,
+        cmd='',
         rc=1,
-        stdout="",
-        stderr=""
+        stdout='',
+        stderr=''
     )
 
     # the AnsibleModule object will be our abstraction working with Ansible
@@ -108,23 +94,28 @@ def run_module():
         supports_check_mode=True
     )
 
-    # if the user is working with this module in only check mode we do not
-    # want to make any changes to the environment, just return the current
-    # state with no modifications
+    subproc_cmd = [
+        "cosign", "login",
+        module.params['registry'],
+        "-u", module.params['username'],
+        "-p", module.params['password']
+    ]
+
     if module.check_mode:
+        result.update({
+            'cmd': subproc_cmd.join(' ')
+        })
         module.exit_json(**result)
 
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
-    subproc_r = subprocess.run([
-        "cosign", "login",
-        "-u", module.params['username'],
-        "-p", module.params['password'],
-        module.params['registry']])
+    subproc_ret = subprocess.run(subproc_cmd)
 
-    result['rc'] = subproc_r.returncode
-    result['stderr'] = subproc_r.stderr
-    result['stdout'] = subproc_r.stdout
+    result.update({
+        'rc': subproc_ret.returncode,
+        'stderr': subproc_ret.stderr,
+        'stdout': subproc_ret.stdout
+    })
 
     # use whatever logic you need to determine whether or not this module
     # made any modifications to your target

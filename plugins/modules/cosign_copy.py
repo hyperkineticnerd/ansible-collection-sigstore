@@ -3,7 +3,6 @@
 # Copyright: (c) 2018, Terry Jones <terry.jones@example.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import (absolute_import, division, print_function)
-import subprocess
 __metaclass__ = type
 
 DOCUMENTATION = r'''
@@ -77,6 +76,7 @@ message:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
+import subprocess
 
 
 def run_module():
@@ -116,14 +116,18 @@ def run_module():
 
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
-    subproc_r = subprocess.run([
+    subproc_cmd = [
         "cosign", "copy",
         module.params['src'],
-        module.params['dest']])
+        module.params['dest']
+    ]
+    subproc_ret = subprocess.run(subproc_cmd)
 
-    result['rc'] = subproc_r.returncode
-    result['stderr'] = subproc_r.stderr
-    result['stdout'] = subproc_r.stdout
+    result.update({
+        'rc': subproc_ret.returncode,
+        'stderr': subproc_ret.stderr,
+        'stdout': subproc_ret.stdout
+    })
 
     # use whatever logic you need to determine whether or not this module
     # made any modifications to your target
